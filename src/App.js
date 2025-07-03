@@ -12,33 +12,45 @@ function App() {
       const text = event.results[0][0].transcript;
       setTranscript(text);
 
-      try {
-        const res = await fetch(
-          "https://voice-assistant-backend-n3at.onrender.com/command",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ command: text }),
-          }
-        );
-
-        const data = await res.json();
-        setResponse(data.reply);
-
-        // Speak the reply
-        const synth = window.speechSynthesis;
-        const utterThis = new SpeechSynthesisUtterance(data.reply);
-        synth.speak(utterThis);
-
-        // ✅ Open YouTube or Google if URL present
-        const urlPattern = /(https?:\/\/[^\s]+)/g;
-        const urls = data.reply.match(urlPattern);
-        if (urls && urls.length > 0) {
-          window.open(urls[0], "_blank"); // open link in new tab
+      // Send to backend
+      const res = await fetch(
+        "https://voice-assistant-backend-n3at.onrender.com/command",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ command: text }),
         }
-      } catch (error) {
-        console.error("Error:", error);
-        setResponse("⚠️ Error: Could not reach backend.");
+      );
+
+      const data = await res.json();
+      const reply = data.reply;
+      setResponse(reply);
+
+      // Voice output
+      const synth = window.speechSynthesis;
+      const utterThis = new SpeechSynthesisUtterance(reply);
+      synth.speak(utterThis);
+
+      // Auto open Google or YouTube
+      if (reply.toLowerCase().includes("searching google for")) {
+        const query = text.replace(/search|google/i, "").trim();
+        window.open(
+          `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+          "_blank"
+        );
+      }
+
+      if (
+        reply.toLowerCase().includes("playing") &&
+        reply.toLowerCase().includes("youtube")
+      ) {
+        const query = text.replace("play", "").trim();
+        window.open(
+          `https://www.youtube.com/results?search_query=${encodeURIComponent(
+            query
+          )}`,
+          "_blank"
+        );
       }
     };
 
