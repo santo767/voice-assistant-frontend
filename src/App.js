@@ -12,45 +12,47 @@ function App() {
       const text = event.results[0][0].transcript;
       setTranscript(text);
 
-      // Send to backend
-      const res = await fetch(
-        "https://voice-assistant-backend-n3at.onrender.com/command",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ command: text }),
+      try {
+        const res = await fetch(
+          "https://voice-assistant-backend-n3at.onrender.com/command",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ command: text }),
+          }
+        );
+
+        const data = await res.json();
+        const reply = data.reply;
+        setResponse(reply);
+
+        // Speak reply
+        const synth = window.speechSynthesis;
+        const utterThis = new SpeechSynthesisUtterance(reply);
+        synth.speak(utterThis);
+
+        // Navigate if needed
+        if (reply.includes("Opening Google for")) {
+          const query = text.replace(
+            /^(search|who is|what is|how is|how does|what do you mean by)\s+/i,
+            ""
+          );
+          window.open(
+            `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+            "_blank"
+          );
+        } else if (reply.includes("Playing") && reply.includes("on YouTube")) {
+          const query = text.replace(/^play\s+/i, "");
+          window.open(
+            `https://www.youtube.com/results?search_query=${encodeURIComponent(
+              query
+            )}`,
+            "_blank"
+          );
         }
-      );
-
-      const data = await res.json();
-      const reply = data.reply;
-      setResponse(reply);
-
-      // Voice output
-      const synth = window.speechSynthesis;
-      const utterThis = new SpeechSynthesisUtterance(reply);
-      synth.speak(utterThis);
-
-      // Auto open Google or YouTube
-      if (reply.toLowerCase().includes("searching google for")) {
-        const query = text.replace(/search|google/i, "").trim();
-        window.open(
-          `https://www.google.com/search?q=${encodeURIComponent(query)}`,
-          "_blank"
-        );
-      }
-
-      if (
-        reply.toLowerCase().includes("playing") &&
-        reply.toLowerCase().includes("youtube")
-      ) {
-        const query = text.replace("play", "").trim();
-        window.open(
-          `https://www.youtube.com/results?search_query=${encodeURIComponent(
-            query
-          )}`,
-          "_blank"
-        );
+      } catch (error) {
+        console.error("Error:", error);
+        setResponse("⚠️ Failed to connect to backend.");
       }
     };
 
