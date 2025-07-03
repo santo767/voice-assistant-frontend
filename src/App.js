@@ -12,7 +12,7 @@ function App() {
       const text = event.results[0][0].transcript;
       setTranscript(text);
 
-      // Send voice command to backend
+      // Call backend hosted on Render
       const res = await fetch(
         "https://voice-assistant-backend-n3at.onrender.com/command",
         {
@@ -25,11 +25,12 @@ function App() {
       const data = await res.json();
       setResponse(data.reply);
 
-      // Speak reply
-      const utterance = new SpeechSynthesisUtterance(data.reply);
-      window.speechSynthesis.speak(utterance);
+      // Voice response
+      const synth = window.speechSynthesis;
+      const utterThis = new SpeechSynthesisUtterance(data.reply);
+      synth.speak(utterThis);
 
-      // If backend gives a navigation URL, open it
+      // Handle navigation
       if (data.navigate) {
         window.open(data.navigate, "_blank");
       }
