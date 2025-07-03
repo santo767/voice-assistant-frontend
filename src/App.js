@@ -25,22 +25,21 @@ function App() {
         const data = await res.json();
         setResponse(data.reply);
 
+        // Speak the reply
         const synth = window.speechSynthesis;
         const utterThis = new SpeechSynthesisUtterance(data.reply);
         synth.speak(utterThis);
-      } catch (error) {
-        setResponse("⚠️ Error: Could not reach backend.");
-        const synth = window.speechSynthesis;
-        const utterThis = new SpeechSynthesisUtterance(
-          "There was an error connecting to the server."
-        );
-        synth.speak(utterThis);
-      }
-    };
 
-    recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
-      setResponse("⚠️ Error with speech recognition.");
+        // ✅ Open YouTube or Google if URL present
+        const urlPattern = /(https?:\/\/[^\s]+)/g;
+        const urls = data.reply.match(urlPattern);
+        if (urls && urls.length > 0) {
+          window.open(urls[0], "_blank"); // open link in new tab
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        setResponse("⚠️ Error: Could not reach backend.");
+      }
     };
 
     recognition.start();
