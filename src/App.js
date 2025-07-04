@@ -6,7 +6,7 @@ function App() {
   const [userName, setUserName] = useState(null);
   const recognitionRef = useRef(null);
 
-  // Extract name from greetings
+  // Extract name from greetings in bot messages
   useEffect(() => {
     if (!userName && messages.length) {
       const lastBotMsg = messages[messages.length - 1];
@@ -21,7 +21,7 @@ function App() {
     setIsListening(true);
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = ""; // Auto-detect
+    recognition.lang = ""; // Auto-detect language
     recognitionRef.current = recognition;
 
     recognition.onresult = async (event) => {
@@ -98,7 +98,7 @@ function App() {
     recognition.start();
   };
 
-  // Google Assistant-style colors
+  // Styles for chat bubbles
   const userBubble = {
     background: "linear-gradient(90deg, #4285f4 0%, #34a853 100%)",
     color: "white",
@@ -108,6 +108,7 @@ function App() {
     margin: "8px 0",
     maxWidth: "70%",
     fontSize: "16px",
+    wordBreak: "break-word",
   };
   const botBubble = {
     background: "linear-gradient(90deg, #fbbc05 0%, #ea4335 100%)",
@@ -118,6 +119,7 @@ function App() {
     margin: "8px 0",
     maxWidth: "70%",
     fontSize: "16px",
+    wordBreak: "break-word",
   };
 
   return (
@@ -226,6 +228,7 @@ function App() {
             zIndex: 100,
             transition: "background 0.3s",
           }}
+          aria-label={isListening ? "Listening" : "Start Talking"}
         >
           <span role="img" aria-label="microphone">
             {isListening ? "🎙️" : "🎤"}
