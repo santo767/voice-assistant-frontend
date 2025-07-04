@@ -5,13 +5,14 @@ function App() {
   const [response, setResponse] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [navigationLink, setNavigationLink] = useState(null);
+  const [selectedLanguage, setSelectedLanguage] = useState("en-US");
 
   const startListening = () => {
     setIsListening(true);
     setNavigationLink(null); // Clear previous navigation link
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = "en-US";
+    recognition.lang = selectedLanguage;
 
     recognition.onresult = async (event) => {
       const text = event.results[0][0].transcript;
@@ -25,7 +26,10 @@ function App() {
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ command: text }),
+            body: JSON.stringify({
+              command: text,
+              language: selectedLanguage,
+            }),
           }
         );
 
@@ -36,6 +40,17 @@ function App() {
         // Voice response
         const synth = window.speechSynthesis;
         const utterThis = new SpeechSynthesisUtterance(data.reply);
+
+        // Set voice language based on selected language
+        const voices = synth.getVoices();
+        const targetVoice = voices.find((voice) =>
+          voice.lang.startsWith(selectedLanguage.split("-")[0])
+        );
+        if (targetVoice) {
+          utterThis.voice = targetVoice;
+        }
+        utterThis.lang = selectedLanguage;
+
         synth.speak(utterThis);
 
         // Handle navigation - Multiple approaches
@@ -94,6 +109,41 @@ function App() {
         🗣️ Web Voice Assistant
       </h1>
 
+      {/* Language Selection */}
+      <div style={{ marginBottom: "20px" }}>
+        <label style={{ marginRight: "10px", fontSize: "16px" }}>
+          🌐 Language:
+        </label>
+        <select
+          value={selectedLanguage}
+          onChange={(e) => setSelectedLanguage(e.target.value)}
+          style={{
+            padding: "5px 10px",
+            fontSize: "14px",
+            borderRadius: "6px",
+            border: "1px solid #3b82f6",
+            background: "#1f2937",
+            color: "white",
+          }}
+        >
+          <option value="en-US">🇺🇸 English (US)</option>
+          <option value="hi-IN">🇮🇳 Hindi</option>
+          <option value="es-ES">🇪🇸 Spanish</option>
+          <option value="fr-FR">🇫🇷 French</option>
+          <option value="de-DE">🇩🇪 German</option>
+          <option value="it-IT">🇮🇹 Italian</option>
+          <option value="pt-BR">🇧🇷 Portuguese</option>
+          <option value="ru-RU">🇷🇺 Russian</option>
+          <option value="ja-JP">🇯🇵 Japanese</option>
+          <option value="ko-KR">🇰🇷 Korean</option>
+          <option value="zh-CN">🇨🇳 Chinese (Mandarin)</option>
+          <option value="ar-SA">🇸🇦 Arabic</option>
+          <option value="ta-IN">🇮🇳 Tamil</option>
+          <option value="te-IN">🇮🇳 Telugu</option>
+          <option value="bn-IN">🇮🇳 Bengali</option>
+        </select>
+      </div>
+
       <button
         onClick={startListening}
         disabled={isListening}
@@ -124,7 +174,11 @@ function App() {
         {navigationLink && (
           <div style={{ marginTop: "20px" }}>
             <p style={{ marginBottom: "10px", color: "#60a5fa" }}>
-              Click to continue:
+              {navigationLink.includes("maps")
+                ? "📍 View on Maps:"
+                : navigationLink.includes("youtube")
+                ? "🎵 Play on YouTube:"
+                : "🔍 Search Results:"}
             </p>
             <a
               href={navigationLink}
@@ -139,9 +193,14 @@ function App() {
                 borderRadius: "8px",
                 display: "inline-block",
                 marginTop: "10px",
+                background: "rgba(59, 130, 246, 0.1)",
               }}
             >
-              Open Link
+              {navigationLink.includes("maps")
+                ? "🗺️ Open Maps"
+                : navigationLink.includes("youtube")
+                ? "▶️ Play Now"
+                : "🔗 Open Link"}
             </a>
           </div>
         )}
