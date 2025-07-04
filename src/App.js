@@ -1,11 +1,27 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 function App() {
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [navigationLink, setNavigationLink] = useState(null);
+  const [navigationLink, setNavigationLink] = useState(null); // Will hold {uri, web} or string
   const [selectedLanguage, setSelectedLanguage] = useState("en-US");
+  const [userName, setUserName] = useState(null); // Remember user name
+
+  // Helper: Try to extract name from backend reply if greeting contains it
+  // (Optional: you can improve this by backend sending name explicitly)
+  useEffect(() => {
+    if (!userName && response) {
+      // Simple heuristic: extract first word after Hello or equivalent
+      const nameMatch = response.match(
+        /Hello (\w+)|नमस्ते (\w+)|வணக்கம் (\w+)|నమస్కారం (\w+)|ഹലോ (\w+)|ಹಲೋ (\w+)|السلام علیکم (\w+)|こんにちは (\w+)/i
+      );
+      if (nameMatch) {
+        const extractedName = nameMatch.slice(1).find(Boolean);
+        if (extractedName) setUserName(extractedName);
+      }
+    }
+  }, [response, userName]);
 
   const startListening = () => {
     setIsListening(true);
@@ -20,15 +36,17 @@ function App() {
       setIsListening(false);
 
       try {
-        // Call backend hosted on Render
+        // Call backend hosted on Render, send name if known
         const res = await fetch(
           "https://voice-assistant-backend-n3at.onrender.com/command",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
+            credentials: "include", // To support sessions if backend uses cookies
             body: JSON.stringify({
               command: text,
               language: selectedLanguage,
+              name: userName || undefined, // send name if known
             }),
           }
         );
@@ -53,25 +71,45 @@ function App() {
 
         synth.speak(utterThis);
 
-        // Handle navigation - Multiple approaches
+        // Handle navigation - support object with uri and web
         if (data.navigate) {
-          console.log("Navigation URL:", data.navigate); // Debug log
-          setNavigationLink(data.navigate);
+          console.log("Navigation data:", data.navigate);
 
-          // Option 1: Ask user for permission
-          const userConfirmed = window.confirm(
-            `Do you want to open ${data.navigate}?`
-          );
-          if (userConfirmed) {
-            // Try to open in new tab first
-            const newWindow = window.open(data.navigate, "_blank");
-            if (
-              !newWindow ||
-              newWindow.closed ||
-              typeof newWindow.closed == "undefined"
-            ) {
-              // Popup blocked, fallback to same tab
-              window.location.href = data.navigate;
+          // If navigate is an object with uri and web
+          if (typeof data.navigate === "object" && data.navigate.uri) {
+            setNavigationLink(data.navigate);
+
+            // Ask user for permission to open app URI
+            const userConfirmed = window.confirm(
+              `Do you want to open the app?`
+            );
+            if (userConfirmed) {
+              // Try to open the URI scheme (mobile app)
+              window.location.href = data.navigate.uri;
+
+              // Fallback: after a delay, open web URL if provided
+              if (data.navigate.web) {
+                setTimeout(() => {
+                  window.open(data.navigate.web, "_blank");
+                }, 2000);
+              }
+            }
+          } else if (typeof data.navigate === "string") {
+            // Old style string URL
+            setNavigationLink(data.navigate);
+
+            const userConfirmed = window.confirm(
+              `Do you want to open ${data.navigate}?`
+            );
+            if (userConfirmed) {
+              const newWindow = window.open(data.navigate, "_blank");
+              if (
+                !newWindow ||
+                newWindow.closed ||
+                typeof newWindow.closed === "undefined"
+              ) {
+                window.location.href = data.navigate;
+              }
             }
           }
         }
@@ -174,14 +212,24 @@ function App() {
         {navigationLink && (
           <div style={{ marginTop: "20px" }}>
             <p style={{ marginBottom: "10px", color: "#60a5fa" }}>
-              {navigationLink.includes("maps")
+              {typeof navigationLink === "object"
+                ? navigationLink.uri.includes("maps")
+                  ? "📍 View on Maps:"
+                  : navigationLink.uri.includes("youtube")
+                  ? "🎵 Play on YouTube:"
+                  : "🔗 Open Link:"
+                : navigationLink.includes("maps")
                 ? "📍 View on Maps:"
                 : navigationLink.includes("youtube")
                 ? "🎵 Play on YouTube:"
-                : "🔍 Search Results:"}
+                : "🔗 Open Link:"}
             </p>
             <a
-              href={navigationLink}
+              href={
+                typeof navigationLink === "object"
+                  ? navigationLink.web
+                  : navigationLink
+              }
               target="_blank"
               rel="noopener noreferrer"
               style={{
@@ -196,7 +244,9 @@ function App() {
                 background: "rgba(59, 130, 246, 0.1)",
               }}
             >
-              {navigationLink.includes("maps")
+              {typeof navigationLink === "object"
+                ? "🔗 Open Link"
+                : navigationLink.includes("maps")
                 ? "🗺️ Open Maps"
                 : navigationLink.includes("youtube")
                 ? "▶️ Play Now"
