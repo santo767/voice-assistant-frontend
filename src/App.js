@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 
 function App() {
-  const [messages, setMessages] = useState([]); // Chat history
+  const [messages, setMessages] = useState([]);
   const [isListening, setIsListening] = useState(false);
   const [userName, setUserName] = useState(null);
   const recognitionRef = useRef(null);
 
-  // Extract name from greetings in bot messages
   useEffect(() => {
     if (!userName && messages.length) {
       const lastBotMsg = messages[messages.length - 1];
@@ -19,9 +18,8 @@ function App() {
 
   const startListening = () => {
     setIsListening(true);
-
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = ""; // Auto-detect language
+    recognition.lang = "";
     recognitionRef.current = recognition;
 
     recognition.onresult = async (event) => {
@@ -49,30 +47,22 @@ function App() {
           { role: "bot", text: data.reply, navigate: data.navigate },
         ]);
 
-        // Voice reply
         const synth = window.speechSynthesis;
         const utterThis = new SpeechSynthesisUtterance(data.reply);
         synth.speak(utterThis);
 
-        // Handle navigation
+        // Navigation logic
         if (data.navigate) {
-          if (typeof data.navigate === "object" && data.navigate.uri) {
-            const userConfirmed = window.confirm(
-              `Do you want to open the app?`
-            );
-            if (userConfirmed) {
+          const confirmed = window.confirm("Do you want to open this?");
+          if (confirmed) {
+            if (typeof data.navigate === "object" && data.navigate.uri) {
               window.location.href = data.navigate.uri;
               if (data.navigate.web) {
                 setTimeout(() => {
                   window.open(data.navigate.web, "_blank");
                 }, 2000);
               }
-            }
-          } else if (typeof data.navigate === "string") {
-            const userConfirmed = window.confirm(
-              `Do you want to open ${data.navigate}?`
-            );
-            if (userConfirmed) {
+            } else {
               const newWindow = window.open(data.navigate, "_blank");
               if (
                 !newWindow ||
@@ -98,52 +88,56 @@ function App() {
     recognition.start();
   };
 
-  // Styles for chat bubbles
+  // Styles
   const userBubble = {
-    background: "linear-gradient(90deg, #4285f4 0%, #34a853 100%)",
-    color: "white",
+    background: "linear-gradient(135deg, #00c6ff, #0072ff)",
+    color: "#fff",
     alignSelf: "flex-end",
-    borderRadius: "20px 20px 4px 20px",
+    borderRadius: "18px 18px 4px 18px",
     padding: "10px 18px",
-    margin: "8px 0",
-    maxWidth: "70%",
+    margin: "6px 0",
+    maxWidth: "85%",
     fontSize: "16px",
     wordBreak: "break-word",
+    animation: "fadeIn 0.3s ease-in-out",
   };
+
   const botBubble = {
-    background: "linear-gradient(90deg, #fbbc05 0%, #ea4335 100%)",
-    color: "white",
+    background: "linear-gradient(135deg, #ff758c, #ff7eb3)",
+    color: "#fff",
     alignSelf: "flex-start",
-    borderRadius: "20px 20px 20px 4px",
+    borderRadius: "18px 18px 18px 4px",
     padding: "10px 18px",
-    margin: "8px 0",
-    maxWidth: "70%",
+    margin: "6px 0",
+    maxWidth: "85%",
     fontSize: "16px",
     wordBreak: "break-word",
+    animation: "fadeIn 0.3s ease-in-out",
   };
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #e8eaf6 0%, #fffde7 100%)",
-        color: "#222",
+        background: "#121212",
+        color: "#fff",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         padding: "0",
+        fontFamily: "sans-serif",
       }}
     >
       <div
         style={{
           width: "100%",
-          maxWidth: "420px",
+          maxWidth: "500px",
           margin: "0 auto",
           minHeight: "100vh",
           display: "flex",
           flexDirection: "column",
           justifyContent: "flex-end",
-          padding: "0 0 80px 0",
+          padding: "0 0 100px 0",
         }}
       >
         <div
@@ -152,26 +146,24 @@ function App() {
             fontSize: "2rem",
             textAlign: "center",
             margin: "32px 0 12px 0",
-            color: "#4285f4",
-            letterSpacing: "1px",
+            background: "linear-gradient(90deg, #00c6ff, #ff7eb3)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
           }}
         >
-          <span role="img" aria-label="mic">
-            🎤
-          </span>{" "}
-          Voice Assistant
+          🎤 Voice Assistant
         </div>
+
         <div
           style={{
             flex: 1,
             display: "flex",
             flexDirection: "column",
             overflowY: "auto",
-            background: "rgba(255,255,255,0.85)",
+            background: "#1e1e1e",
             borderRadius: "16px",
-            boxShadow: "0 2px 16px rgba(66,133,244,0.08)",
-            padding: "24px 12px 12px 12px",
-            minHeight: "350px",
+            padding: "16px 12px",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
           }}
         >
           {messages.map((msg, idx) => (
@@ -188,7 +180,7 @@ function App() {
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      color: "#4285f4",
+                      color: "#00c6ff",
                       textDecoration: "underline",
                       fontWeight: "bold",
                     }}
@@ -206,33 +198,32 @@ function App() {
             </div>
           ))}
         </div>
+
         <button
           onClick={startListening}
           disabled={isListening}
           style={{
             position: "fixed",
-            bottom: 32,
+            bottom: 30,
             left: "50%",
             transform: "translateX(-50%)",
             background: isListening
-              ? "rgba(234,67,53,0.8)"
-              : "linear-gradient(90deg, #4285f4 0%, #34a853 100%)",
-            color: "white",
+              ? "#ff5252"
+              : "linear-gradient(135deg, #00c6ff, #0072ff)",
+            color: "#fff",
             border: "none",
-            padding: "20px",
-            fontSize: "32px",
+            padding: "18px",
+            fontSize: "28px",
             borderRadius: "50%",
             cursor: isListening ? "not-allowed" : "pointer",
-            boxShadow: "0 4px 24px rgba(66,133,244,0.18)",
+            boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
             outline: "none",
             zIndex: 100,
-            transition: "background 0.3s",
+            transition: "all 0.3s ease",
           }}
           aria-label={isListening ? "Listening" : "Start Talking"}
         >
-          <span role="img" aria-label="microphone">
-            {isListening ? "🎙️" : "🎤"}
-          </span>
+          {isListening ? "🎙️" : "🎤"}
         </button>
       </div>
     </div>
