@@ -1,39 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 function App() {
-  const [transcript, setTranscript] = useState("");
-  const [response, setResponse] = useState("");
+  const [messages, setMessages] = useState([]); // Chat history
   const [isListening, setIsListening] = useState(false);
-  const [navigationLink, setNavigationLink] = useState(null);
   const [userName, setUserName] = useState(null);
+  const recognitionRef = useRef(null);
 
-  // Try to extract name from greeting
+  // Extract name from greetings
   useEffect(() => {
-    if (!userName && response) {
-      const nameMatch = response.match(
-        /Hello (\w+)|नमस्ते (\w+)|வணக்கம் (\w+)|నమస్కారం (\w+)|ഹലോ (\w+)|ಹಲೋ (\w+)|السلام علیکم (\w+)|こんにちは (\w+)/i
-      );
-      if (nameMatch) {
-        const extractedName = nameMatch.slice(1).find(Boolean);
-        if (extractedName) setUserName(extractedName);
+    if (!userName && messages.length) {
+      const lastBotMsg = messages[messages.length - 1];
+      if (lastBotMsg && lastBotMsg.role === "bot") {
+        const nameMatch = lastBotMsg.text.match(/Hello (\w+)!/i);
+        if (nameMatch) setUserName(nameMatch[1]);
       }
     }
-  }, [response, userName]);
+  }, [messages, userName]);
 
   const startListening = () => {
     setIsListening(true);
-    setNavigationLink(null);
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = ""; // Let browser auto-detect language
+    recognition.lang = ""; // Auto-detect
+    recognitionRef.current = recognition;
 
     recognition.onresult = async (event) => {
       const text = event.results[0][0].transcript;
-      setTranscript(text);
+      setMessages((msgs) => [...msgs, { role: "user", text }]);
       setIsListening(false);
 
       try {
-        // Only send transcript and name (if known)
         const res = await fetch(
           "https://voice-assistant-backend-n3at.onrender.com/command",
           {
@@ -48,17 +44,19 @@ function App() {
         );
 
         const data = await res.json();
-        setResponse(data.reply);
+        setMessages((msgs) => [
+          ...msgs,
+          { role: "bot", text: data.reply, navigate: data.navigate },
+        ]);
 
-        // Voice response (let browser auto-select language)
+        // Voice reply
         const synth = window.speechSynthesis;
         const utterThis = new SpeechSynthesisUtterance(data.reply);
         synth.speak(utterThis);
 
-        // Handle navigation - support object with uri and web
+        // Handle navigation
         if (data.navigate) {
           if (typeof data.navigate === "object" && data.navigate.uri) {
-            setNavigationLink(data.navigate);
             const userConfirmed = window.confirm(
               `Do you want to open the app?`
             );
@@ -71,7 +69,6 @@ function App() {
               }
             }
           } else if (typeof data.navigate === "string") {
-            setNavigationLink(data.navigate);
             const userConfirmed = window.confirm(
               `Do you want to open ${data.navigate}?`
             );
@@ -88,109 +85,152 @@ function App() {
           }
         }
       } catch (error) {
-        setResponse("Sorry, I couldn't process that request.");
+        setMessages((msgs) => [
+          ...msgs,
+          { role: "bot", text: "Sorry, I couldn't process that request." },
+        ]);
         setIsListening(false);
       }
     };
 
-    recognition.onerror = (event) => {
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
     recognition.start();
+  };
+
+  // Google Assistant-style colors
+  const userBubble = {
+    background: "linear-gradient(90deg, #4285f4 0%, #34a853 100%)",
+    color: "white",
+    alignSelf: "flex-end",
+    borderRadius: "20px 20px 4px 20px",
+    padding: "10px 18px",
+    margin: "8px 0",
+    maxWidth: "70%",
+    fontSize: "16px",
+  };
+  const botBubble = {
+    background: "linear-gradient(90deg, #fbbc05 0%, #ea4335 100%)",
+    color: "white",
+    alignSelf: "flex-start",
+    borderRadius: "20px 20px 20px 4px",
+    padding: "10px 18px",
+    margin: "8px 0",
+    maxWidth: "70%",
+    fontSize: "16px",
   };
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: "black",
-        color: "white",
-        textAlign: "center",
-        paddingTop: "50px",
-        padding: "20px",
+        background: "linear-gradient(135deg, #e8eaf6 0%, #fffde7 100%)",
+        color: "#222",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        padding: "0",
       }}
     >
-      <h1 style={{ fontSize: "24px", marginBottom: "20px" }}>
-        🗣️ Web Voice Assistant
-      </h1>
-
-      <button
-        onClick={startListening}
-        disabled={isListening}
+      <div
         style={{
-          background: isListening ? "#6b7280" : "#3b82f6",
-          color: "white",
-          border: "none",
-          padding: "10px 20px",
-          fontSize: "18px",
-          borderRadius: "12px",
-          cursor: isListening ? "not-allowed" : "pointer",
-          opacity: isListening ? 0.7 : 1,
-          marginBottom: "20px",
+          width: "100%",
+          maxWidth: "420px",
+          margin: "0 auto",
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-end",
+          padding: "0 0 80px 0",
         }}
       >
-        {isListening ? "Listening..." : "Start Talking"}
-      </button>
-
-      <div style={{ maxWidth: "800px", margin: "0 auto" }}>
-        <p style={{ marginTop: "20px", fontSize: "16px" }}>
-          You said: <span style={{ color: "#22c55e" }}>{transcript}</span>
-        </p>
-
-        <p style={{ fontSize: "16px", marginTop: "10px" }}>
-          Bot says: <span style={{ color: "#facc15" }}>{response}</span>
-        </p>
-
-        {navigationLink && (
-          <div style={{ marginTop: "20px" }}>
-            <p style={{ marginBottom: "10px", color: "#60a5fa" }}>
-              {typeof navigationLink === "object"
-                ? navigationLink.uri.includes("maps")
-                  ? "📍 View on Maps:"
-                  : navigationLink.uri.includes("youtube")
-                  ? "🎵 Play on YouTube:"
-                  : "🔗 Open Link:"
-                : navigationLink.includes("maps")
-                ? "📍 View on Maps:"
-                : navigationLink.includes("youtube")
-                ? "🎵 Play on YouTube:"
-                : "🔗 Open Link:"}
-            </p>
-            <a
-              href={
-                typeof navigationLink === "object"
-                  ? navigationLink.web
-                  : navigationLink
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                color: "#3b82f6",
-                textDecoration: "underline",
-                fontSize: "16px",
-                padding: "10px 20px",
-                border: "1px solid #3b82f6",
-                borderRadius: "8px",
-                display: "inline-block",
-                marginTop: "10px",
-                background: "rgba(59, 130, 246, 0.1)",
-              }}
-            >
-              {typeof navigationLink === "object"
-                ? "🔗 Open Link"
-                : navigationLink.includes("maps")
-                ? "🗺️ Open Maps"
-                : navigationLink.includes("youtube")
-                ? "▶️ Play Now"
-                : "🔗 Open Link"}
-            </a>
-          </div>
-        )}
+        <div
+          style={{
+            fontWeight: "bold",
+            fontSize: "2rem",
+            textAlign: "center",
+            margin: "32px 0 12px 0",
+            color: "#4285f4",
+            letterSpacing: "1px",
+          }}
+        >
+          <span role="img" aria-label="mic">
+            🎤
+          </span>{" "}
+          Voice Assistant
+        </div>
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            overflowY: "auto",
+            background: "rgba(255,255,255,0.85)",
+            borderRadius: "16px",
+            boxShadow: "0 2px 16px rgba(66,133,244,0.08)",
+            padding: "24px 12px 12px 12px",
+            minHeight: "350px",
+          }}
+        >
+          {messages.map((msg, idx) => (
+            <div key={idx} style={msg.role === "user" ? userBubble : botBubble}>
+              {msg.text}
+              {msg.navigate && (
+                <div style={{ marginTop: 8 }}>
+                  <a
+                    href={
+                      typeof msg.navigate === "object"
+                        ? msg.navigate.web
+                        : msg.navigate
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "#4285f4",
+                      textDecoration: "underline",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {typeof msg.navigate === "object"
+                      ? "🔗 Open Link"
+                      : msg.navigate.includes("maps")
+                      ? "🗺️ Open Maps"
+                      : msg.navigate.includes("youtube")
+                      ? "▶️ Play Now"
+                      : "🔗 Open Link"}
+                  </a>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={startListening}
+          disabled={isListening}
+          style={{
+            position: "fixed",
+            bottom: 32,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: isListening
+              ? "rgba(234,67,53,0.8)"
+              : "linear-gradient(90deg, #4285f4 0%, #34a853 100%)",
+            color: "white",
+            border: "none",
+            padding: "20px",
+            fontSize: "32px",
+            borderRadius: "50%",
+            cursor: isListening ? "not-allowed" : "pointer",
+            boxShadow: "0 4px 24px rgba(66,133,244,0.18)",
+            outline: "none",
+            zIndex: 100,
+            transition: "background 0.3s",
+          }}
+        >
+          <span role="img" aria-label="microphone">
+            {isListening ? "🎙️" : "🎤"}
+          </span>
+        </button>
       </div>
     </div>
   );
