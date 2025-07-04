@@ -4,15 +4,12 @@ function App() {
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [navigationLink, setNavigationLink] = useState(null); // Will hold {uri, web} or string
-  const [selectedLanguage, setSelectedLanguage] = useState("en-US");
-  const [userName, setUserName] = useState(null); // Remember user name
+  const [navigationLink, setNavigationLink] = useState(null);
+  const [userName, setUserName] = useState(null);
 
-  // Helper: Try to extract name from backend reply if greeting contains it
-  // (Optional: you can improve this by backend sending name explicitly)
+  // Try to extract name from greeting
   useEffect(() => {
     if (!userName && response) {
-      // Simple heuristic: extract first word after Hello or equivalent
       const nameMatch = response.match(
         /Hello (\w+)|नमस्ते (\w+)|வணக்கம் (\w+)|నమస్కారం (\w+)|ഹലോ (\w+)|ಹಲೋ (\w+)|السلام علیکم (\w+)|こんにちは (\w+)/i
       );
@@ -25,10 +22,10 @@ function App() {
 
   const startListening = () => {
     setIsListening(true);
-    setNavigationLink(null); // Clear previous navigation link
+    setNavigationLink(null);
 
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = selectedLanguage;
+    recognition.lang = ""; // Let browser auto-detect language
 
     recognition.onresult = async (event) => {
       const text = event.results[0][0].transcript;
@@ -36,58 +33,37 @@ function App() {
       setIsListening(false);
 
       try {
-        // Call backend hosted on Render, send name if known
+        // Only send transcript and name (if known)
         const res = await fetch(
           "https://voice-assistant-backend-n3at.onrender.com/command",
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            credentials: "include", // To support sessions if backend uses cookies
+            credentials: "include",
             body: JSON.stringify({
               command: text,
-              language: selectedLanguage,
-              name: userName || undefined, // send name if known
+              name: userName || undefined,
             }),
           }
         );
 
         const data = await res.json();
-        console.log("Backend response:", data); // Debug log
         setResponse(data.reply);
 
-        // Voice response
+        // Voice response (let browser auto-select language)
         const synth = window.speechSynthesis;
         const utterThis = new SpeechSynthesisUtterance(data.reply);
-
-        // Set voice language based on selected language
-        const voices = synth.getVoices();
-        const targetVoice = voices.find((voice) =>
-          voice.lang.startsWith(selectedLanguage.split("-")[0])
-        );
-        if (targetVoice) {
-          utterThis.voice = targetVoice;
-        }
-        utterThis.lang = selectedLanguage;
-
         synth.speak(utterThis);
 
         // Handle navigation - support object with uri and web
         if (data.navigate) {
-          console.log("Navigation data:", data.navigate);
-
-          // If navigate is an object with uri and web
           if (typeof data.navigate === "object" && data.navigate.uri) {
             setNavigationLink(data.navigate);
-
-            // Ask user for permission to open app URI
             const userConfirmed = window.confirm(
               `Do you want to open the app?`
             );
             if (userConfirmed) {
-              // Try to open the URI scheme (mobile app)
               window.location.href = data.navigate.uri;
-
-              // Fallback: after a delay, open web URL if provided
               if (data.navigate.web) {
                 setTimeout(() => {
                   window.open(data.navigate.web, "_blank");
@@ -95,9 +71,7 @@ function App() {
               }
             }
           } else if (typeof data.navigate === "string") {
-            // Old style string URL
             setNavigationLink(data.navigate);
-
             const userConfirmed = window.confirm(
               `Do you want to open ${data.navigate}?`
             );
@@ -114,14 +88,12 @@ function App() {
           }
         }
       } catch (error) {
-        console.error("Error:", error);
         setResponse("Sorry, I couldn't process that request.");
         setIsListening(false);
       }
     };
 
     recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
       setIsListening(false);
     };
 
@@ -146,41 +118,6 @@ function App() {
       <h1 style={{ fontSize: "24px", marginBottom: "20px" }}>
         🗣️ Web Voice Assistant
       </h1>
-
-      {/* Language Selection */}
-      <div style={{ marginBottom: "20px" }}>
-        <label style={{ marginRight: "10px", fontSize: "16px" }}>
-          🌐 Language:
-        </label>
-        <select
-          value={selectedLanguage}
-          onChange={(e) => setSelectedLanguage(e.target.value)}
-          style={{
-            padding: "5px 10px",
-            fontSize: "14px",
-            borderRadius: "6px",
-            border: "1px solid #3b82f6",
-            background: "#1f2937",
-            color: "white",
-          }}
-        >
-          <option value="en-US">🇺🇸 English (US)</option>
-          <option value="hi-IN">🇮🇳 Hindi</option>
-          <option value="es-ES">🇪🇸 Spanish</option>
-          <option value="fr-FR">🇫🇷 French</option>
-          <option value="de-DE">🇩🇪 German</option>
-          <option value="it-IT">🇮🇹 Italian</option>
-          <option value="pt-BR">🇧🇷 Portuguese</option>
-          <option value="ru-RU">🇷🇺 Russian</option>
-          <option value="ja-JP">🇯🇵 Japanese</option>
-          <option value="ko-KR">🇰🇷 Korean</option>
-          <option value="zh-CN">🇨🇳 Chinese (Mandarin)</option>
-          <option value="ar-SA">🇸🇦 Arabic</option>
-          <option value="ta-IN">🇮🇳 Tamil</option>
-          <option value="te-IN">🇮🇳 Telugu</option>
-          <option value="bn-IN">🇮🇳 Bengali</option>
-        </select>
-      </div>
 
       <button
         onClick={startListening}
