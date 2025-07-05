@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import botAvatar from "./bot.png";
+import botAvatar from "./bot.jpg";
 import "./App.css";
 
 export default function VoiceAssistant() {
