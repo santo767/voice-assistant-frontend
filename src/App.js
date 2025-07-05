@@ -1,86 +1,78 @@
 import React, { useState, useEffect, useRef } from "react";
+import botAvatar from "./bot.png";
+import "./App.css";
 
-function App() {
+export default function VoiceAssistant() {
   const [messages, setMessages] = useState([]);
   const [isListening, setIsListening] = useState(false);
   const [userName, setUserName] = useState(null);
+  const [inputText, setInputText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const recognitionRef = useRef(null);
 
   useEffect(() => {
     if (!userName && messages.length) {
       const lastBotMsg = messages[messages.length - 1];
-      if (lastBotMsg && lastBotMsg.role === "bot") {
+      if (lastBotMsg?.role === "bot") {
         const nameMatch = lastBotMsg.text.match(/Hello (\w+)!/i);
         if (nameMatch) setUserName(nameMatch[1]);
       }
     }
   }, [messages, userName]);
 
+  const sendCommand = async (text) => {
+    setMessages((prev) => [...prev, { role: "user", text }]);
+    setIsTyping(true);
+    try {
+      const res = await fetch(
+        "https://voice-assistant-backend-n3at.onrender.com/command",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ command: text, name: userName || undefined }),
+        }
+      );
+      const data = await res.json();
+
+      setMessages((prev) => [
+        ...prev,
+        { role: "bot", text: data.reply, navigate: data.navigate },
+      ]);
+      setIsTyping(false);
+
+      const utterance = new SpeechSynthesisUtterance(data.reply);
+      window.speechSynthesis.speak(utterance);
+
+      if (data.navigate) {
+        const confirmNav = window.confirm("Open the suggested link?");
+        if (confirmNav) {
+          const url =
+            typeof data.navigate === "object"
+              ? data.navigate.uri || data.navigate.web
+              : data.navigate;
+          window.open(url, "_blank");
+        }
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "bot", text: "Sorry, I couldn't process that request." },
+      ]);
+      setIsTyping(false);
+    }
+  };
+
   const startListening = () => {
     setIsListening(true);
     const recognition = new window.webkitSpeechRecognition();
-    recognition.lang = "";
+    recognition.lang = "en-IN";
     recognitionRef.current = recognition;
 
-    recognition.onresult = async (event) => {
+    recognition.onresult = (event) => {
       const text = event.results[0][0].transcript;
-      setMessages((msgs) => [...msgs, { role: "user", text }]);
       setIsListening(false);
-
-      try {
-        const res = await fetch(
-          "https://voice-assistant-backend-n3at.onrender.com/command",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              command: text,
-              name: userName || undefined,
-            }),
-          }
-        );
-
-        const data = await res.json();
-        setMessages((msgs) => [
-          ...msgs,
-          { role: "bot", text: data.reply, navigate: data.navigate },
-        ]);
-
-        const synth = window.speechSynthesis;
-        const utterThis = new SpeechSynthesisUtterance(data.reply);
-        synth.speak(utterThis);
-
-        // Navigation logic
-        if (data.navigate) {
-          const confirmed = window.confirm("Do you want to open this?");
-          if (confirmed) {
-            if (typeof data.navigate === "object" && data.navigate.uri) {
-              window.location.href = data.navigate.uri;
-              if (data.navigate.web) {
-                setTimeout(() => {
-                  window.open(data.navigate.web, "_blank");
-                }, 2000);
-              }
-            } else {
-              const newWindow = window.open(data.navigate, "_blank");
-              if (
-                !newWindow ||
-                newWindow.closed ||
-                typeof newWindow.closed === "undefined"
-              ) {
-                window.location.href = data.navigate;
-              }
-            }
-          }
-        }
-      } catch (error) {
-        setMessages((msgs) => [
-          ...msgs,
-          { role: "bot", text: "Sorry, I couldn't process that request." },
-        ]);
-        setIsListening(false);
-      }
+      sendCommand(text);
     };
 
     recognition.onerror = () => setIsListening(false);
@@ -88,146 +80,70 @@ function App() {
     recognition.start();
   };
 
-  // Styles
-  const userBubble = {
-    background: "linear-gradient(135deg, #00c6ff, #0072ff)",
-    color: "#fff",
-    alignSelf: "flex-end",
-    borderRadius: "18px 18px 4px 18px",
-    padding: "10px 18px",
-    margin: "6px 0",
-    maxWidth: "85%",
-    fontSize: "16px",
-    wordBreak: "break-word",
-    animation: "fadeIn 0.3s ease-in-out",
-  };
-
-  const botBubble = {
-    background: "linear-gradient(135deg, #ff758c, #ff7eb3)",
-    color: "#fff",
-    alignSelf: "flex-start",
-    borderRadius: "18px 18px 18px 4px",
-    padding: "10px 18px",
-    margin: "6px 0",
-    maxWidth: "85%",
-    fontSize: "16px",
-    wordBreak: "break-word",
-    animation: "fadeIn 0.3s ease-in-out",
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (inputText.trim()) {
+      sendCommand(inputText.trim());
+      setInputText("");
+    }
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "#121212",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        padding: "0",
-        fontFamily: "sans-serif",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "500px",
-          margin: "0 auto",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "flex-end",
-          padding: "0 0 100px 0",
-        }}
-      >
-        <div
-          style={{
-            fontWeight: "bold",
-            fontSize: "2rem",
-            textAlign: "center",
-            margin: "32px 0 12px 0",
-            background: "linear-gradient(90deg, #00c6ff, #ff7eb3)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-          }}
-        >
-          🎤 Voice Assistant
-        </div>
-
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            overflowY: "auto",
-            background: "#1e1e1e",
-            borderRadius: "16px",
-            padding: "16px 12px",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-          }}
-        >
-          {messages.map((msg, idx) => (
-            <div key={idx} style={msg.role === "user" ? userBubble : botBubble}>
-              {msg.text}
-              {msg.navigate && (
-                <div style={{ marginTop: 8 }}>
-                  <a
-                    href={
-                      typeof msg.navigate === "object"
-                        ? msg.navigate.web
-                        : msg.navigate
-                    }
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "#00c6ff",
-                      textDecoration: "underline",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {typeof msg.navigate === "object"
-                      ? "🔗 Open Link"
-                      : msg.navigate.includes("maps")
-                      ? "🗺️ Open Maps"
-                      : msg.navigate.includes("youtube")
-                      ? "▶️ Play Now"
-                      : "🔗 Open Link"}
-                  </a>
-                </div>
+    <div className="app-container">
+      <h1 className="header">🎤 Voice Assistant</h1>
+      <div className="chat-container">
+        <div className="messages-container">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={msg.role === "user" ? "message user" : "message bot"}
+            >
+              {msg.role === "bot" && (
+                <img src={botAvatar} alt="Bot" className="bot-avatar" />
               )}
+              <div>
+                {msg.text}
+                {msg.navigate && (
+                  <div className="navigate-link">
+                    <a
+                      href={
+                        typeof msg.navigate === "object"
+                          ? msg.navigate.web
+                          : msg.navigate
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      🔗 Open
+                    </a>
+                  </div>
+                )}
+              </div>
             </div>
           ))}
+          {isTyping && <div className="typing">Assistant is typing...</div>}
         </div>
+
+        <form onSubmit={handleSubmit} className="input-form">
+          <input
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Type your message..."
+            className="input-box"
+          />
+          <button type="submit" className="send-button">
+            Send
+          </button>
+        </form>
 
         <button
           onClick={startListening}
           disabled={isListening}
-          style={{
-            position: "fixed",
-            bottom: 30,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: isListening
-              ? "#ff5252"
-              : "linear-gradient(135deg, #00c6ff, #0072ff)",
-            color: "#fff",
-            border: "none",
-            padding: "18px",
-            fontSize: "28px",
-            borderRadius: "50%",
-            cursor: isListening ? "not-allowed" : "pointer",
-            boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-            outline: "none",
-            zIndex: 100,
-            transition: "all 0.3s ease",
-          }}
-          aria-label={isListening ? "Listening" : "Start Talking"}
+          className={`voice-button ${isListening ? "listening" : ""}`}
         >
-          {isListening ? "🎙️" : "🎤"}
+          {isListening ? "🎙️ Listening..." : "🎤 Speak"}
         </button>
       </div>
     </div>
   );
 }
-
-export default App;
